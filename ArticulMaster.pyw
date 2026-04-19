@@ -1,9 +1,13 @@
 import tkinter as tk
 from tkinter import messagebox, filedialog, ttk
-import os, re, threading, shutil, sys
+import os, re, threading, shutil, sys, requests
 from datetime import datetime
 
-# Приховування консолі
+# Поточна версія програми
+CURRENT_VERSION = "1.2"
+VERSION_URL = "https://raw.githubusercontent.com/alex-voron/ArticulMaster/refs/heads/main/version.txt"
+UPDATE_URL = "https://raw.githubusercontent.com/alex-voron/ArticulMaster/refs/heads/main/ArticulMaster.pyw"
+
 def hide_console():
     if sys.platform == "win32":
         import ctypes
@@ -19,22 +23,18 @@ except ImportError:
 class ArticulMaster:
     def __init__(self, root):
         self.root = root
-        self.root.title("Articul Master - Enterprise Edition")
-        self.root.geometry("420x740")
+        self.root.title(f"Articul Master v{CURRENT_VERSION}")
+        self.root.geometry("420x760")
         self.root.resizable(False, False)
         self.root.configure(bg='#0b0d11') 
 
-        # --- ФЕНШУЙ-ВИПРАВЛЕННЯ ШЛЯХІВ (АРРDATA) ---
-        # Використовуємо AppData, щоб уникнути помилок доступу (WinError 5)
         appdata_path = os.getenv('APPDATA')
         self.work_dir = os.path.join(appdata_path, "ArticulMasterPro")
         self.db_dir = os.path.join(self.work_dir, "database")
         self.backup_dir = os.path.join(self.work_dir, "backups")
         
-        # Створюємо робочі папки, якщо їх немає
         for d in [self.work_dir, self.db_dir, self.backup_dir]:
-            if not os.path.exists(d): 
-                os.makedirs(d)
+            if not os.path.exists(d): os.makedirs(d)
 
         self.vendors = {
             "207": "Pc.Lviv", "212": "eLaptop", "33": "PXL", "37": "Fortserg1",
@@ -46,6 +46,31 @@ class ArticulMaster:
         self.setup_ui()
         self.create_backup()
         self.load_vendor_data()
+        
+        # Перевірка оновлень при старті
+        threading.Thread(target=self.check_for_updates, daemon=True).start()
+
+    def check_for_updates(self):
+        try:
+            response = requests.get(VERSION_URL, timeout=5)
+            if response.status_code == 200:
+                remote_version = response.text.strip()
+                if remote_version != CURRENT_VERSION:
+                    if messagebox.askyesno("Оновлення", f"Доступна нова версія {remote_version}. Оновити зараз?"):
+                        self.perform_update()
+        except: pass
+
+    def perform_update(self):
+        try:
+            response = requests.get(UPDATE_URL, timeout=10)
+            if response.status_code == 200:
+                script_path = os.path.abspath(sys.argv[0])
+                with open(script_path, 'wb') as f:
+                    f.write(response.content)
+                messagebox.showinfo("Успіх", "Програму оновлено. Перезапустіть її.")
+                self.root.destroy()
+        except Exception as e:
+            messagebox.showerror("Помилка оновлення", str(e))
 
     def setup_ui(self):
         style = ttk.Style()
@@ -115,7 +140,6 @@ class ArticulMaster:
 
         tk.Button(self.root, text="DATA IMPORT", command=self.import_txt, bg='#21262d', fg='#8b949e', relief="flat", font=("Segoe UI", 8, "bold"), pady=10).pack(pady=20, padx=90, fill='x')
 
-    # Логіка залишилася незмінною, але тепер вона використовує безпечні шляхи
     def get_vendor_code(self):
         match = re.search(r'\[(\d+)\]', self.vendor_var.get())
         return match.group(1) if match else "000"
@@ -138,40 +162,53 @@ class ArticulMaster:
     def generate(self):
         val = self.price_entry.get().strip()
         if not val.isdigit(): return
-        curr = int(val); start = curr
+        curr = int(val)
+        start = curr
         while curr in self.occupied_prices: curr -= 1
+        
         code = self.get_vendor_code()
-        self.res_var.set(f"{curr}_{code}")
+        final_articul = f"{curr}_{code}"
+        self.res_var.set(final_articul)
         self.res_display.config(fg='#ffac00' if curr < start else '#00ff9d')
+        
+        # Автоматичне збереження знайденого артикула
+        self.occupied_prices.add(curr)
+        self.save_db()
+        
         self.root.clipboard_clear()
-        self.root.clipboard_append(self.res_var.get())
-        self.show_toast("COPY SUCCESSFUL")
+        self.root.clipboard_append(final_articul)
+        self.show_toast("ЗБЕРЕЖЕНО ТА СКОПІЙОВАНО!", '#00ff9d')
         play_beep()
 
     def reserve_articul(self):
         res = self.res_var.get()
         if res == "---": return
-        price = int(res.split('_')[0])
-        self.occupied_prices.add(price)
-        self.save_db()
-        self.show_toast("ASSET RESERVED", '#00ff9d')
-        play_beep()
+        try:
+            price = int(res.split('_')[0])
+            self.occupied_prices.add(price)
+            self.save_db()
+            self.show_toast("ASSET RESERVED", '#00ff9d')
+            play_beep()
+        except: pass
 
     def mark_as_occupied(self):
         res = self.res_var.get()
         if res == "---": return
-        price = int(res.split('_')[0])
-        self.occupied_prices.add(price)
-        self.save_db()
-        self.generate()
-        self.show_toast("RE-SCANNING...")
+        try:
+            price = int(res.split('_')[0])
+            self.occupied_prices.add(price)
+            self.save_db()
+            self.generate()
+            self.show_toast("RE-SCANNING...")
+        except: pass
 
     def save_db(self):
         try:
             code = self.get_vendor_code()
             db_path = os.path.join(self.db_dir, f"vendor_{code}.txt")
             with open(db_path, 'w', encoding='utf-8') as f:
-                for p in sorted(list(self.occupied_prices), reverse=True): f.write(f"{p}\n")
+                for p in sorted(list(self.occupied_prices), reverse=True):
+                    f.write(f"{p}\n")
             self.status_label.config(text=f"SYNCED: {len(self.occupied_prices)} ITEMS")
         except: pass
 
