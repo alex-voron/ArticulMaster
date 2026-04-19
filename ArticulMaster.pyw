@@ -4,7 +4,7 @@ import os, re, threading, shutil, sys, requests
 from datetime import datetime, timedelta
 
 # Поточна версія програми
-CURRENT_VERSION = "1.4"
+CURRENT_VERSION = "1.4.1"
 VERSION_URL = "https://raw.githubusercontent.com/alex-voron/ArticulMaster/refs/heads/main/version.txt"
 UPDATE_URL = "https://raw.githubusercontent.com/alex-voron/ArticulMaster/refs/heads/main/ArticulMaster.pyw"
 
@@ -89,14 +89,27 @@ class ArticulMaster:
         try:
             response = requests.get(UPDATE_URL, timeout=10)
             if response.status_code == 200:
-                script_path = os.path.abspath(sys.argv[0])
-                # Створюємо тимчасовий файл для заміни
-                with open(script_path, 'wb') as f:
+                # Отримуємо шлях до поточного запущеного файлу
+                exe_path = os.path.abspath(sys.argv[0])
+                temp_path = exe_path + ".tmp"
+
+                # 1. Записуємо нову версію у тимчасовий файл
+                with open(temp_path, 'wb') as f:
                     f.write(response.content)
-                messagebox.showinfo("Успіх", "Програму оновлено. Перезапустіть її.")
+
+                messagebox.showinfo("Оновлення", "Програма зараз закриється для завершення оновлення.")
+
+                # 2. Сценарій заміни: чекаємо 2 сек, видаляємо старий, перейменовуємо новий, запускаємо
+                # Це спрацює навіть у Program Files, якщо оновлювач запущено з потрібними правами
+                cmd = f'timeout /t 2 && del "{exe_path}" && move "{temp_path}" "{exe_path}" && start "" "{exe_path}"'
+                
+                import subprocess
+                subprocess.Popen(cmd, shell=True)
+                
                 self.root.destroy()
+                sys.exit()
         except Exception as e:
-            messagebox.showerror("Помилка оновлення", str(e))
+            messagebox.showerror("Помилка оновлення", f"Не вдалося оновити: {str(e)}")
 
     def setup_ui(self):
         style = ttk.Style()
