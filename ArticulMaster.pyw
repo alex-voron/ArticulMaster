@@ -1,10 +1,10 @@
 import tkinter as tk
 from tkinter import messagebox, filedialog, ttk
 import os, re, threading, shutil, sys, requests
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Поточна версія програми
-CURRENT_VERSION = "1.3"
+CURRENT_VERSION = "1.4"
 VERSION_URL = "https://raw.githubusercontent.com/alex-voron/ArticulMaster/refs/heads/main/version.txt"
 UPDATE_URL = "https://raw.githubusercontent.com/alex-voron/ArticulMaster/refs/heads/main/ArticulMaster.pyw"
 
@@ -28,12 +28,14 @@ class ArticulMaster:
         self.root.resizable(False, False)
         self.root.configure(bg='#0b0d11') 
 
+        # --- ШЛЯХИ ТА ПАПКИ ---
         appdata_path = os.getenv('APPDATA')
         self.work_dir = os.path.join(appdata_path, "ArticulMasterPro")
         self.db_dir = os.path.join(self.work_dir, "database")
         self.backup_dir = os.path.join(self.work_dir, "backups")
+        self.log_dir = os.path.join(self.work_dir, "logs")
         
-        for d in [self.work_dir, self.db_dir, self.backup_dir]:
+        for d in [self.work_dir, self.db_dir, self.backup_dir, self.log_dir]:
             if not os.path.exists(d): os.makedirs(d)
 
         self.vendors = {
@@ -45,35 +47,50 @@ class ArticulMaster:
         self.occupied_prices = set()
         self.setup_ui()
         self.create_backup()
+        self.rotate_logs() # Видалення логів старше 7 днів
         self.load_vendor_data()
         
-        # Перевірка оновлень при старті
+        # Перевірка оновлень у окремому потоці (щоб не вішати вікно)
         threading.Thread(target=self.check_for_updates, daemon=True).start()
+
+    def log_articul(self, articul):
+        """Записує артикул у лог дня"""
+        try:
+            today = datetime.now().strftime("%Y-%m-%d")
+            time_now = datetime.now().strftime("%H:%M:%S")
+            log_path = os.path.join(self.log_dir, f"{today}.log")
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write(f"[{time_now}] ADDED: {articul}\n")
+        except: pass
+
+    def rotate_logs(self):
+        """Циклічне видалення логів (залишаємо 7 днів)"""
+        try:
+            now = datetime.now()
+            for filename in os.listdir(self.log_dir):
+                file_path = os.path.join(self.log_dir, filename)
+                if os.path.isfile(file_path):
+                    file_time = datetime.fromtimestamp(os.path.getmtime(file_path))
+                    if now - file_time > timedelta(days=7):
+                        os.remove(file_path)
+        except: pass
 
     def check_for_updates(self):
         try:
             response = requests.get(VERSION_URL, timeout=5)
             if response.status_code == 200:
                 remote_version_text = response.text.strip()
-                # Перетворюємо обидві версії на числа для правильного порівняння
-                remote_v = float(remote_version_text)
-                current_v = float(CURRENT_VERSION)
-                
-                # Оновлюємо, тільки якщо версія в мережі БІЛЬША за поточну
-                if remote_v > current_v:
-                    if messagebox.askyesno("Оновлення", f"Доступна нова версія {remote_version_text}. Оновити зараз?"):
+                if float(remote_version_text) > float(CURRENT_VERSION):
+                    if messagebox.askyesno("Оновлення", f"Доступна нова версія {remote_version_text}. Оновити?"):
                         self.perform_update()
-                else:
-                    # Якщо версії рівні або на гіті стара версія - нічого не робимо
-                    pass
-        except Exception as e:
-            print(f"Помилка перевірки оновлень: {e}")
+        except: pass
 
     def perform_update(self):
         try:
             response = requests.get(UPDATE_URL, timeout=10)
             if response.status_code == 200:
                 script_path = os.path.abspath(sys.argv[0])
+                # Створюємо тимчасовий файл для заміни
                 with open(script_path, 'wb') as f:
                     f.write(response.content)
                 messagebox.showinfo("Успіх", "Програму оновлено. Перезапустіть її.")
@@ -180,9 +197,10 @@ class ArticulMaster:
         self.res_var.set(final_articul)
         self.res_display.config(fg='#ffac00' if curr < start else '#00ff9d')
         
-        # Автоматичне збереження знайденого артикула
+        # Авто-збереження та Логування
         self.occupied_prices.add(curr)
         self.save_db()
+        self.log_articul(final_articul)
         
         self.root.clipboard_clear()
         self.root.clipboard_append(final_articul)
@@ -196,7 +214,8 @@ class ArticulMaster:
             price = int(res.split('_')[0])
             self.occupied_prices.add(price)
             self.save_db()
-            self.show_toast("ASSET RESERVED", '#00ff9d')
+            self.log_articul(res)
+            self.show_toast("ASSET RESERVED & LOGGED", '#00ff9d')
             play_beep()
         except: pass
 
