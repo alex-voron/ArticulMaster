@@ -4,7 +4,7 @@ import os, re, threading, shutil, sys, requests
 from datetime import datetime
 
 # Поточна версія програми
-CURRENT_VERSION = "1.2"
+CURRENT_VERSION = "1.3"
 VERSION_URL = "https://raw.githubusercontent.com/alex-voron/ArticulMaster/refs/heads/main/version.txt"
 UPDATE_URL = "https://raw.githubusercontent.com/alex-voron/ArticulMaster/refs/heads/main/ArticulMaster.pyw"
 
@@ -54,11 +54,20 @@ class ArticulMaster:
         try:
             response = requests.get(VERSION_URL, timeout=5)
             if response.status_code == 200:
-                remote_version = response.text.strip()
-                if remote_version != CURRENT_VERSION:
-                    if messagebox.askyesno("Оновлення", f"Доступна нова версія {remote_version}. Оновити зараз?"):
+                remote_version_text = response.text.strip()
+                # Перетворюємо обидві версії на числа для правильного порівняння
+                remote_v = float(remote_version_text)
+                current_v = float(CURRENT_VERSION)
+                
+                # Оновлюємо, тільки якщо версія в мережі БІЛЬША за поточну
+                if remote_v > current_v:
+                    if messagebox.askyesno("Оновлення", f"Доступна нова версія {remote_version_text}. Оновити зараз?"):
                         self.perform_update()
-        except: pass
+                else:
+                    # Якщо версії рівні або на гіті стара версія - нічого не робимо
+                    pass
+        except Exception as e:
+            print(f"Помилка перевірки оновлень: {e}")
 
     def perform_update(self):
         try:
