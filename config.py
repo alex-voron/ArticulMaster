@@ -8,7 +8,7 @@ S1, S2, S3 = "GOCSPX-", "2ZIN8P8_N8VDlrixaY", "xVOfBrnpVN"
 def get_keys():
     return f"{P1}{P2}{P3}", f"{S1}{S2}{S3}"
 
-CURRENT_VERSION = "3.5" # Нова мажорна версія після рефакторингу
+CURRENT_VERSION = "4" # Нова мажорна версія після рефакторингу
 VERSION_URL = "https://raw.githubusercontent.com/alex-voron/ArticulMaster/refs/heads/main/version.txt"
 # URL тепер буде вести на ZIP для оновлення всіх модулів відразу
 UPDATE_URL = "https://github.com/alex-voron/ArticulMaster/archive/refs/heads/main.zip"
