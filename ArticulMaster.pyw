@@ -7,6 +7,8 @@ from datetime import datetime
 REQUIRED_FILES = ["config.py", "logic.py", "cloud_manager.py", "ui_components.py"]
 GITHUB_RAW_BASE = "https://raw.githubusercontent.com/alex-voron/ArticulMaster/main/"
 
+CURRENT_VERSION = "3.4.4"
+
 def sync_internal_modules():
     """Перевіряє наявність модулів і завантажує їх, якщо вони відсутні"""
     downloaded_any = False
