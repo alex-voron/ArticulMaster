@@ -1,40 +1,1 @@
-import os
-import re
-from config import DB_DIR
-
-class ArticulLogic:
-    def __init__(self):
-        self.occupied_prices = set()
-
-    def get_vendor_code(self, vendor_str):
-        if not vendor_str: return "207"
-        match = re.search(r'\[(\d+)\]', vendor_str)
-        return match.group(1) if match else "207"
-
-    def load_local_data(self, code):
-        db_path = os.path.join(DB_DIR, f"vendor_{code}.txt")
-        self.occupied_prices = set()
-        if os.path.exists(db_path):
-            with open(db_path, 'r', encoding='utf-8', errors='ignore') as f:
-                for line in f:
-                    if line.strip().isdigit(): 
-                        self.occupied_prices.add(int(line.strip()))
-        return len(self.occupied_prices)
-
-    def generate_articul(self, price_val, code):
-        curr = int(price_val)
-        while curr in self.occupied_prices:
-            curr -= 1
-        self.occupied_prices.add(curr)
-        return f"{curr}_{code}", curr
-
-    def save_to_file(self, code):
-        db_path = os.path.join(DB_DIR, f"vendor_{code}.txt")
-        with open(db_path, 'w', encoding='utf-8') as f:
-            for p in sorted(list(self.occupied_prices), reverse=True):
-                f.write(f"{p}\n")
-
-    # НОВИЙ МЕТОД
-    def get_sorted_prices(self):
-        """Повертає список цін від найбільшої до найменшої"""
-        return sorted(list(self.occupied_prices), reverse=True)
+import osimport refrom config import DB_DIRclass ArticulLogic:    def __init__(self):        self.occupied_prices = set()    def get_vendor_code(self, vendor_str):        if not vendor_str: return "207"        match = re.search(r'\[(\d+)\]', vendor_str)        return match.group(1) if match else "207"    def load_local_data(self, code):        db_path = os.path.join(DB_DIR, f"vendor_{code}.txt")        self.occupied_prices = set()        if os.path.exists(db_path):            with open(db_path, 'r', encoding='utf-8', errors='ignore') as f:                for line in f:                    clean_line = line.strip()                    if clean_line.isdigit():                         self.occupied_prices.add(int(clean_line))        return len(self.occupied_prices)    def generate_articul(self, price_val, code):        curr = int(price_val)        while curr in self.occupied_prices:            curr -= 1        self.occupied_prices.add(curr)        return f"{curr}_{code}", curr    def save_to_file(self, code):        os.makedirs(DB_DIR, exist_ok=True) # Додав створення папки на всякий випадок        db_path = os.path.join(DB_DIR, f"vendor_{code}.txt")        with open(db_path, 'w', encoding='utf-8') as f:            for p in sorted(list(self.occupied_prices), reverse=True):                f.write(f"{p}\n")    def get_sorted_prices(self):        """Повертає список цін від найбільшої до найменшої"""        return sorted(list(self.occupied_prices), reverse=True)    # --- ДОДАНИЙ МЕТОД ІМПОРТУ ---    def import_txt(self, file_path):        """Зчитує ціни з будь-якого TXT і додає до поточної бази"""        added_count = 0        try:            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:                for line in f:                    # Шукаємо число на початку рядка (навіть якщо там є інший текст)                    match = re.search(r'^(\d+)', line.strip())                    if match:                        price = int(match.group(1))                        if price not in self.occupied_prices:                            self.occupied_prices.add(price)                            added_count += 1            return added_count        except Exception as e:            print(f"Error during import in logic.py: {e}")            return 0

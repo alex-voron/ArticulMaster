@@ -19,7 +19,7 @@ sys.path.append(resource_path('.'))
 # --- ПАРАМЕТРИ ВЕРСІЇ ТА ГІТХАБУ ---
 GITHUB_RAW_BASE = "https://raw.githubusercontent.com/alex-voron/ArticulMaster/main/"
 REQUIRED_FILES = ["config.py", "logic.py", "cloud_manager.py", "ui_components.py"]
-CURRENT_VERSION = "4.0" # Завжди використовуємо одну крапку для сумісності
+CURRENT_VERSION = "4.1" # Завжди використовуємо одну крапку для сумісності
 
 # --- БЛОК РОЗУМНОГО ЗАВАНТАЖЕННЯ (ТІЛЬКИ ДЛЯ .PY ВЕРСІЇ) ---
 def sync_internal_modules():
