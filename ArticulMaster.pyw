@@ -22,31 +22,31 @@ REQUIRED_FILES = ["config.py", "logic.py", "cloud_manager.py", "ui_components.py
 CURRENT_VERSION = "4.1" # Завжди використовуємо одну крапку для сумісності
 
 # --- БЛОК РОЗУМНОГО ЗАВАНТАЖЕННЯ (ТІЛЬКИ ДЛЯ .PY ВЕРСІЇ) ---
+# --- БЛОК СИНХРОНІЗАЦІЇ 4.1 (СУМІСНИЙ) ---
 def sync_internal_modules():
-    # Якщо програма запущена як EXE (frozen), завантажувач НЕ потрібен
-    if getattr(sys, 'frozen', False):
-        return 
+    if getattr(sys, 'frozen', False): return 
 
-    downloaded_any = False
-    for filename in REQUIRED_FILES:
-        if not os.path.exists(filename):
-            print(f"Downloading missing module: {filename}...")
-            try:
-                url = GITHUB_RAW_BASE + filename
-                r = requests.get(url, timeout=10)
-                if r.status_code == 200:
-                    with open(filename, 'w', encoding='utf-8') as f:
-                        f.write(r.text)
-                    downloaded_any = True
-            except Exception as e:
-                print(f"Error syncing {filename}: {e}")
+    downloaded = False
+    for filename in ["config.py", "logic.py", "cloud_manager.py", "ui_components.py"]:
+        try:
+            r = requests.get(GITHUB_RAW_BASE + filename, timeout=10)
+            if r.status_code == 200:
+                # Важливо: пишемо файл повністю, щоб стара версія не "підхопила" половинку
+                with open(filename, 'w', encoding='utf-8') as f:
+                    f.write(r.text)
+                downloaded = True
+        except: pass
     
-    if downloaded_any:
-        print("Modules synced. Restarting application...")
+    if downloaded:
+        # Перезавантаження через системний виклик
         os.execv(sys.executable, ['python'] + sys.argv)
 
-# Виконуємо синхронізацію
 sync_internal_modules()
+
+# Тільки ПІСЛЯ синхронізації робимо імпорти
+import config
+from logic import ArticulLogic
+# ... і так далі
 
 # --- ІМПОРТИ МОДУЛІВ ---
 try:
