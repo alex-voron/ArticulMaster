@@ -273,14 +273,29 @@ class ArticulMasterApp:
         if path:
             code = self.logic.get_vendor_code(self.vendor_cb.get())
             added = self.logic.import_txt(path)
+            
             if added > 0:
-                self.logic.save_to_file(code) # ЗБЕРЕЖЕННЯ ПІСЛЯ ІМПОРТУ
+                # 1. Зберігаємо локально в AppData
+                self.logic.save_to_file(code)
+                
+                # 2. Оновлюємо цифру в інтерфейсі
                 self.update_status_label()
-                self.show_toast(f"ADDED {added}", "#00ff9d")
+                
+                # 3. ВІДПРАВЛЯЄМО В ХМАРУ (щоб дані не зникли)
+                db_filename = f"vendor_{code}.txt"
+                local_path = os.path.join(config.DB_DIR, db_filename)
+                self.cloud.upload_file(db_filename, local_path)
+                
+                # 4. Показуємо успіх (з використанням перекладу)
+                msg = f"{config.t('copy_toast')} (+{added})" if added > 0 else "DONE"
+                self.show_toast(f"ADDED {added} ITEMS", "#00ff9d")
+            else:
+                # Якщо файл вибрали, але там старі ціни, які вже є в базі
+                self.show_toast("NO NEW DATA FOUND", "#f85149")
 
     def update_status_label(self):
+        # Використовуємо формат з конфігу, щоб підтримувати мови
         self.status_label.config(text=config.t("status_sync").format(len(self.logic.occupied_prices)))
-
     def force_sync_ui(self):
         try:
             self.vendor_cb.current(0)
